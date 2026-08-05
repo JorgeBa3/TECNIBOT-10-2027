@@ -8,9 +8,6 @@ import time
 # Bluetooth
 bt = BluetoothChat("ALARMA-SISMICA")
 
-# LED del ESP32
-led = Pin(2, Pin.OUT)
-
 # Sensor
 i2c = SoftI2C(scl=Pin(22), sda=Pin(21))
 mpu = MPU6050(i2c)
@@ -33,9 +30,7 @@ while True:
         contador += 1
     else:
         contador = 0
-        led.off()
     if contador >= LECTURAS:
-        led.on()
         mensaje = "ALERTA SISMICA \n"
         print(mensaje)
         bt.enviar(mensaje)
