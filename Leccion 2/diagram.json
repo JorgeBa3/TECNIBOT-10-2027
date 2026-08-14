@@ -21,16 +21,16 @@
     {
       "type": "wokwi-resistor",
       "id": "r1",
-      "top": 14.4,
-      "left": 229.85,
-      "rotate": 90,
+      "top": 42.65,
+      "left": 209.8,
+      "rotate": 180,
       "attrs": { "value": "1000" }
     },
     {
       "type": "wokwi-led",
       "id": "led1",
       "top": 27.6,
-      "left": 265.8,
+      "left": 285,
       "rotate": 90,
       "attrs": { "color": "red" }
     },
@@ -65,28 +65,40 @@
       "left": 285,
       "rotate": 90,
       "attrs": { "color": "green" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r4",
+      "top": 185.8,
+      "left": 258.35,
+      "rotate": 270,
+      "attrs": { "value": "1000" }
     }
   ],
   "connections": [
     [ "esp:TX", "$serialMonitor:RX", "", [] ],
     [ "esp:RX", "$serialMonitor:TX", "", [] ],
-    [ "led1:A", "bb1:11b.h", "", [ "$bb" ] ],
-    [ "led1:C", "bb1:10b.h", "", [ "$bb" ] ],
     [ "esp:4", "bb1:15b.h", "gold", [ "h0" ] ],
     [ "bb1:11b.i", "esp:5", "red", [ "h0" ] ],
-    [ "r1:1", "bb1:4b.i", "", [ "$bb" ] ],
-    [ "r1:2", "bb1:10b.i", "", [ "$bb" ] ],
-    [ "r2:1", "bb1:14b.h", "", [ "$bb" ] ],
-    [ "r2:2", "bb1:bn.11", "", [ "$bb" ] ],
-    [ "r3:1", "bb1:17b.h", "", [ "$bb" ] ],
-    [ "r3:2", "bb1:bn.14", "", [ "$bb" ] ],
-    [ "led2:A", "bb1:15b.g", "", [ "$bb" ] ],
-    [ "led2:C", "bb1:14b.g", "", [ "$bb" ] ],
-    [ "led3:A", "bb1:18b.f", "", [ "$bb" ] ],
-    [ "led3:C", "bb1:17b.f", "", [ "$bb" ] ],
     [ "esp:2", "bb1:18b.h", "green", [ "h19.2", "v19.2" ] ],
     [ "esp:GND.2", "bb1:bn.1", "black", [ "v0" ] ],
-    [ "bb1:4b.j", "bb1:bn.3", "green", [ "h-38.4" ] ]
+    [ "esp:3V3", "bb1:bp.2", "red", [ "v-48", "h152.85" ] ],
+    [ "led2:A", "bb1:15b.g", "", [ "$bb" ] ],
+    [ "led2:C", "bb1:14b.g", "", [ "$bb" ] ],
+    [ "r2:1", "bb1:14b.h", "", [ "$bb" ] ],
+    [ "r2:2", "bb1:bn.11", "", [ "$bb" ] ],
+    [ "led3:A", "bb1:18b.f", "", [ "$bb" ] ],
+    [ "led3:C", "bb1:17b.f", "", [ "$bb" ] ],
+    [ "led1:A", "bb1:11b.f", "", [ "$bb" ] ],
+    [ "led1:C", "bb1:10b.f", "", [ "$bb" ] ],
+    [ "r1:1", "bb1:10b.h", "", [ "$bb" ] ],
+    [ "r1:2", "bb1:bn.8", "", [ "$bb" ] ],
+    [ "r3:1", "bb1:17b.h", "", [ "$bb" ] ],
+    [ "r3:2", "bb1:bn.14", "", [ "$bb" ] ],
+    [ "r4:1", "bb1:28b.f", "", [ "$bb" ] ],
+    [ "r4:2", "bb1:22b.f", "", [ "$bb" ] ],
+    [ "bb1:28b.j", "bb1:bn.23", "black", [ "h0" ] ],
+    [ "bb1:28b.h", "esp:34", "blue", [ "h0", "v48", "h-211.2", "v-249.6" ] ]
   ],
   "dependencies": {}
 }
