@@ -1,33 +1,65 @@
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-from sklearn.linear_model import LinearRegression
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import PolynomialFeatures
+ARCHIVO_LIMPIO = "datos_limpios.csv"
 
-# 1. Cargar datos limpios y entrenar modelo polinomial
-df = pd.read_csv('datos_limpios.csv')
-X, y = df[['Tiempo_s']], df['Temperatura_C']
+# 1. Cargar, en la propia ESP32, los datos ya limpios que guardó limpieza.py
+datos = []
+with open(ARCHIVO_LIMPIO) as archivo:
+    archivo.readline()  # salta el encabezado
+    for linea in archivo:
+        t_txt, temp_txt = linea.strip().split(",")
+        datos.append((float(t_txt), float(temp_txt)))
 
-modelo = make_pipeline(PolynomialFeatures(degree=2), LinearRegression()).fit(X, y)
+print("Muestras cargadas para el entrenamiento: {}".format(len(datos)))
 
-# 2. Predicción interactiva
-t_user = float(input("Ingresa el tiempo en segundos para predecir: "))
-pred = modelo.predict(pd.DataFrame({'Tiempo_s': [t_user]}))[0]
-print(f"🔮 A los {t_user}s la temperatura será de ~{pred:.1f} °C")
+# 2. Sumatorias del sistema de ecuaciones normales para y = a + b*t + c*t^2
+#    (regresión polinomial de grado 2, calculada a mano, sin numpy ni sklearn)
+n = len(datos)
+s_t = s_t2 = s_t3 = s_t4 = s_y = s_ty = s_t2y = 0.0
+for t, y in datos:
+    t2 = t * t
+    s_t += t
+    s_t2 += t2
+    s_t3 += t2 * t
+    s_t4 += t2 * t2
+    s_y += y
+    s_ty += t * y
+    s_t2y += t2 * y
 
-# 3. Graficar datos, curva y predicción
-X_ext = pd.DataFrame({'Tiempo_s': np.linspace(df['Tiempo_s'].min(), max(df['Tiempo_s'].max(), t_user), 100)})
+matriz = [
+    [n, s_t, s_t2, s_y],
+    [s_t, s_t2, s_t3, s_ty],
+    [s_t2, s_t3, s_t4, s_t2y],
+]
 
-plt.figure(figsize=(8, 4))
-plt.scatter(df['Tiempo_s'], df['Temperatura_C'], color='blue', alpha=0.6, label='Datos Limpios')
-plt.plot(X_ext['Tiempo_s'], modelo.predict(X_ext), color='darkorange', lw=2, label='Modelo Polinomial (Grado 2)')
-plt.scatter([t_user], [pred], color='green', s=140, marker='*', zorder=5, label=f'Predicción ({t_user}s: {pred:.1f}°C)')
+# 3. Resolver el sistema 3x3 por eliminación gaussiana (a, b, c)
+def resolver_3x3(m):
+    for i in range(3):
+        pivote = m[i][i]
+        for j in range(i, 4):
+            m[i][j] /= pivote
+        for k in range(3):
+            if k != i:
+                factor = m[k][i]
+                for j in range(i, 4):
+                    m[k][j] -= factor * m[i][j]
+    return m[0][3], m[1][3], m[2][3]
 
-plt.xlabel('Tiempo (s)')
-plt.ylabel('Temperatura (°C)')
-plt.title('Predicción Curvilínea de Temperatura')
-plt.legend()
-plt.grid(True, ls='--', alpha=0.5)
-plt.tight_layout()
-plt.show()
+a, b, c = resolver_3x3(matriz)
+
+def predecir(t):
+    return a + b * t + c * t * t
+
+# 4. Predicción interactiva
+tiempo_usuario = float(input("Ingresa el tiempo en segundos para predecir: "))
+prediccion = predecir(tiempo_usuario)
+print("\nA los {}s la temperatura estimada es: {:.1f} °C".format(tiempo_usuario, prediccion))
+
+# 5. Curva del modelo en ASCII: datos reales vs. curva polinomial y tu predicción
+print("\nCurva del modelo (cada '*' representa la temperatura estimada en ese segundo):")
+t_max = max(t for t, _ in datos)
+t_max = max(t_max, tiempo_usuario)
+paso = max(1, int(t_max / 20))
+for t in range(0, int(t_max) + 1, paso):
+    temp = predecir(t)
+    barra = "*" * int(max(0, min(temp, 100)) / 100 * 40)
+    marca = "  <-- tu predicción" if abs(t - tiempo_usuario) < paso else ""
+    print("t={:4d}s | {} {:.1f}°C{}".format(t, barra, temp, marca))

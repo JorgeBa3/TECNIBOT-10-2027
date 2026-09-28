@@ -1,69 +1,55 @@
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
+from machine import ADC, Pin
+from utime import sleep, time
 
-from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.pipeline import make_pipeline
+# 1. Configurar el sensor de temperatura (potenciómetro), igual que en lecciones anteriores
+pot_temp = ADC(Pin(34))
+pot_temp.atten(ADC.ATTN_11DB)
 
-# 1. Cargar datos crudos
-df = pd.read_csv('datos_sensores_l7.csv')
+def leer_temp():
+    return (pot_temp.read() / 4095.0) * 100.0  # ADC 0-4095 -> 0-100 °C simulados
 
-# 2. LIMPIEZA L7: Borrar nulos Y filtrar valores atípicos
-df_limpio = df.dropna()
-# Conservar solo temperaturas lógicas de un hogar (entre 0°C y 50°C)
-df_limpio = df_limpio[(df_limpio['Temperatura_C'] >= 0) & (df_limpio['Temperatura_C'] <= 50)]
+def graficar_ascii(datos, titulo, ancho=40):
+    print("\n" + titulo)
+    for t, temp in datos:
+        temp_valida = max(0, min(temp, 100))
+        barra = "#" * int((temp_valida / 100) * ancho)
+        print("t={:5.1f}s | {} {:.1f}°C".format(t, barra, temp))
 
-# 3. COMPARACIÓN VISUAL: ANTES VS DESPUÉS DE LIMPIAR
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
-# Gráfica 1: Sucia
-ax1.scatter(df['Tiempo_s'], df['Temperatura_C'], color='purple', alpha=0.7)
-ax1.set_title('Antes de Limpiar (Con Outliers)')
-ax1.set_xlabel('Tiempo (s)')
-ax1.set_ylabel('Temperatura (°C)')
-ax1.grid(True, linestyle='--', alpha=0.5)
+# 2. RECOLECCIÓN: lee la temperatura cada segundo, directamente en la ESP32
+MUESTRAS = 40
+ARCHIVO_CRUDO = "datos_sensores_l7.csv"
+ARCHIVO_LIMPIO = "datos_limpios.csv"
 
-# Gráfica 2: Limpia
-ax2.scatter(df_limpio['Tiempo_s'], df_limpio['Temperatura_C'], color='blue', alpha=0.7)
-ax2.set_title('Después de Limpiar (Filtrado 0°C a 50°C)')
-ax2.set_xlabel('Tiempo (s)')
-ax2.set_ylabel('Temperatura (°C)')
-ax2.grid(True, linestyle='--', alpha=0.5)
+print("Mueve el potenciómetro. De vez en cuando llévalo al tope o al mínimo")
+print("para generar lecturas 'raras' (outliers) que luego vamos a limpiar.\n")
 
-plt.tight_layout()
-plt.show()
+datos_crudos = []
+inicio = time()
+with open(ARCHIVO_CRUDO, "w") as archivo:
+    archivo.write("Tiempo_s,Temperatura_C\n")
+    for i in range(MUESTRAS):
+        t = time() - inicio
+        temp = leer_temp()
+        datos_crudos.append((t, temp))
+        archivo.write("{},{:.2f}\n".format(t, temp))
+        print("[{}/{}] t={}s  Temp={:.1f}°C".format(i + 1, MUESTRAS, t, temp))
+        sleep(1)
 
-# 4. ENTRENAR REGRESIÓN POLINOMIAL (Grado 2)
+# 3. LIMPIEZA L7: filtrar valores atípicos (temperaturas ilógicas para una casa: fuera de 0°C a 50°C)
+datos_limpios = [(t, temp) for t, temp in datos_crudos if 0 <= temp <= 50]
 
-X = df_limpio[['Tiempo_s']]
-y = df_limpio['Temperatura_C']
+print("\nMuestras crudas: {}".format(len(datos_crudos)))
+print("Muestras después de limpiar: {}".format(len(datos_limpios)))
+print("Outliers eliminados: {}".format(len(datos_crudos) - len(datos_limpios)))
 
-# Creamos un pipeline que eleva 'Tiempo_s' al cuadrado y entrena el modelo
-modelo_poly = make_pipeline(PolynomialFeatures(degree=2), LinearRegression())
-modelo_poly.fit(X, y)
+# 4. COMPARACIÓN VISUAL (ASCII, directo en la consola de la ESP32): antes vs después de limpiar
+graficar_ascii(datos_crudos, "ANTES de limpiar (con outliers)")
+graficar_ascii(datos_limpios, "DESPUÉS de limpiar (0°C a 50°C)")
 
-# 5. PREDICCIÓN INTERACTIVA
-tiempo_usuario = float(input("\nIngresa el tiempo en segundos para predecir: "))
-prediccion = modelo_poly.predict(pd.DataFrame({'Tiempo_s': [tiempo_usuario]}))[0]
+# 5. Guardar el archivo limpio en la memoria de la ESP32 para RegresionPolinomial.py
+with open(ARCHIVO_LIMPIO, "w") as archivo:
+    archivo.write("Tiempo_s,Temperatura_C\n")
+    for t, temp in datos_limpios:
+        archivo.write("{},{:.2f}\n".format(t, temp))
 
-print(f"🔮 Predicción Polinomial: A los {tiempo_usuario}s habrán ~{prediccion:.1f} °C")
-
-# 6. VISUALIZACIÓN DE LA CURVA POLINOMIAL Y LA PREDICCIÓN
-max_x = max(df_limpio['Tiempo_s'].max(), tiempo_usuario)
-X_extendido = pd.DataFrame({'Tiempo_s': np.linspace(df_limpio['Tiempo_s'].min(), max_x, 100)})
-y_extendido = modelo_poly.predict(X_extendido)
-
-plt.figure(figsize=(9, 4.5))
-plt.scatter(df_limpio['Tiempo_s'], df_limpio['Temperatura_C'], color='blue', alpha=0.6, label='Datos Limpios')
-plt.plot(X_extendido['Tiempo_s'], y_extendido, color='darkorange', linewidth=2.5, label='Modelo Polinomial (Curva)')
-plt.scatter([tiempo_usuario], [prediccion], color='green', s=150, zorder=5, marker='*', label=f'Tu Predicción ({tiempo_usuario}s, {prediccion:.1f}°C)')
-
-plt.ylim(18, max(prediccion + 3, 35))
-plt.xlabel('Tiempo (s)', fontweight='bold')
-plt.ylabel('Temperatura (°C)', fontweight='bold')
-plt.title('Modelo de Predicción Curvilínea (Lección 7)', fontweight='bold')
-plt.legend()
-plt.grid(True, linestyle='--', alpha=0.5)
-
-plt.tight_layout()
-plt.show()
+print("\nArchivo '{}' guardado en la ESP32.".format(ARCHIVO_LIMPIO))
